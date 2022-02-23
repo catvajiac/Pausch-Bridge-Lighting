@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
 
-import cv2 as cv
-from colorthief import ColorThief
-from matplotlib.pyplot import draw
-import numpy as np
-
 import altair as alt
 import pandas as pd
-
 import streamlit as st
+
+from colorthief import ColorThief
+from matplotlib.pyplot import draw
 
 
 def rgb_to_hex(rgb):
