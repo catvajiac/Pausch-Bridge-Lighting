@@ -1,7 +1,9 @@
 import cv2 as cv
 import numpy as np
-from typing import NewType
+import os
 import random as rd
+
+from typing import NewType
 
 bridge_width = 228
 bridge_height = 8
@@ -131,6 +133,81 @@ class PauschBridge:
         self.set_values(slices, rgb_ranges(
             start_rgb, end_rgb, num_frames), start_time, end_time)
 
+    def sprite_from_file(self, filename: str, start_time: int, end_time: int):
+        ''' effect that moves a sprite based on data given from filename
+            :param filename:    path to file
+            :param start_time:      time (sec) of effect start
+            :param end_time:        time (sec) of effect end'''
+
+        def parse_tuple(s: str):
+            ''' turn string into rrb value'''
+            s = s.replace('(', '').replace(')', '')
+            return tuple(int(num) for num in s.split(','))
+
+        if not os.path.exists(filename):
+            print('filename {} does not exist!'.format(filename))
+
+        with open(filename, 'r') as f:
+            data = [line.split() for line in f]
+
+         # first line contains sprite info
+        base_rgb, highlight_rgb = [parse_tuple(s) for s in data.pop(0)]
+
+        curr_time = start_time
+        for pos, velocity, duration in data:
+            pos = parse_tuple(pos)
+            velocity = parse_tuple(velocity)
+            duration = int(duration)
+            self.sprite(base_rgb, highlight_rgb, curr_time,
+                        curr_time+duration, pos, velocity)
+
+            # keep going through file until we exceed specified end_time (do we want to do this?)
+            if curr_time + duration > end_time:
+                curr_time = end_time
+            elif curr_time + duration == end_time:
+                break
+            else:
+                curr_time += duration
+
+    def sprite(self, base_rgb: RGB, highlight_rgb: RGB, start_time: int, end_time: int, pos: tuple[int, int], velocity: tuple[int, int], slices: list[Indices] = None):
+        ''' effect that displays a small sprite moving linearly
+            :param base_rgb:        RGB values of the desired base color
+            :param highlight_rgb:   RGB values of the desired sparkle color
+            :param start_time:      time (sec) of effect start
+            :param end_time:        time (sec) of effect end
+            :param pos:             starting position of small sprite
+            :param velocity:        velocity of small sprite (2-d tuple)
+            :param slices:          [optional] list of the subset of the frame to display effect on, defaults to whole frame'''
+
+        def gen_slice(pos: tuple[int, int], size: int = 3, limit: tuple[int, int] = (8, 228)):
+            x, y = pos
+            half = size // 2
+            min_x = x - half if x - half >= 0 else 0
+            min_y = y - half if y - half >= 0 else 0
+            max_x = x + half + 1 if x + half + 1 < limit[0] else limit[0]
+            max_y = y + half + 1 if y + half + 1 < limit[1] else limit[1]
+
+            return slice(min_x, max_x), slice(min_y, max_y)
+
+        def gen_sprite_movement(num_frames):
+            curr_pos = pos
+            for _ in range(num_frames):
+                frame = np.full((bridge_height, bridge_width, 3),
+                                base_rgb, dtype='uint8')
+
+                x, y = gen_slice(curr_pos)
+                frame[x, y] = highlight_rgb
+
+                curr_pos = [p + v for p, v in zip(curr_pos, velocity)]
+
+                yield frame
+
+        start_frame, end_frame, slices = self._effect_params(
+            start_time, end_time, slices)
+
+        self.set_values(slices, gen_sprite_movement(
+            end_frame - start_frame), start_time, end_time)
+
     def sparkle(self, base_rgb: RGB, highlight_rgb: RGB, start_time: int, end_time: int, slices: list[Indices] = None):
         ''' effect that displays sparkles of a desired color on a solid background color
             :param base_rgb:        RGB values of the desired base color
@@ -218,6 +295,8 @@ def simple_test():
     pbl.hue_shift((255, 0, 0), (255, 255, 0), 5, 10)
     pbl.wave((255, 0, 0), (255, 255, 255), 10, 15)
     pbl.sparkle((255, 0, 0), (255, 255, 255), 15, 20)
+    #pbl.sprite((255, 0, 0), (255, 255, 255), 20, 25, [4, 4], [0, 1])
+    pbl.sprite_from_file('sprite_data.txt', 20, 25)
     pbl.save('test')
 
 
