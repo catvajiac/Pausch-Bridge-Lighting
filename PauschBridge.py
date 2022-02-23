@@ -2,6 +2,7 @@ import cv2 as cv
 import numpy as np
 import os
 import random as rd
+import yaml
 
 from typing import NewType
 
@@ -147,17 +148,19 @@ class PauschBridge:
         if not os.path.exists(filename):
             print('filename {} does not exist!'.format(filename))
 
-        with open(filename, 'r') as f:
-            data = [line.split() for line in f]
+        with open('sprite_data.yaml', 'r') as f:
+            data = yaml.load(f, Loader=yaml.FullLoader)
+            print(data)
 
-         # first line contains sprite info
-        base_rgb, highlight_rgb = [parse_tuple(s) for s in data.pop(0)]
+        #base_rgb, highlight_rgb = [parse_tuple(s) for s in data.pop(0)]
+        base_rgb = parse_tuple(data[0]['bg_color'])
+        highlight_rgb = parse_tuple(data[0]['sprite_color'])
 
         curr_time = start_time
-        for pos, velocity, duration in data:
-            pos = parse_tuple(pos)
-            velocity = parse_tuple(velocity)
-            duration = int(duration)
+        for entry in data[0]['positions']:
+            pos = parse_tuple(entry['start'])
+            velocity = parse_tuple(entry['velocity'])
+            duration = int(entry['duration'])
             self.sprite(base_rgb, highlight_rgb, curr_time,
                         curr_time+duration, pos, velocity)
 
