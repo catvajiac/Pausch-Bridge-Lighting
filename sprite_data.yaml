@@ -1,5 +1,14 @@
 - sprite_color: (255, 255, 255)
-  bg_color: (255, 0, 0)
+  positions:
+  - start: (4, 4)
+    velocity: (0, 1)
+    acceleration: (0, .25)
+    duration: 3
+  - start: (4, 175)
+    velocity: (0, 1)
+    duration: 3
+
+- sprite_color: (255, 255, 255)
   positions:
   - start: (4, 4)
     velocity: (0, 1)
