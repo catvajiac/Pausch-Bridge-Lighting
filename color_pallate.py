@@ -13,6 +13,12 @@ def rgb_to_hex(rgb):
 
 
 @st.cache
+def convert_palette(palette):
+    df = pd.DataFrame({'index': range(len(palette)), 'colors': palette})
+    return df.to_csv(index=False).encode('utf-8')
+
+
+@st.cache
 def get_palette(filename, color_count):
     print('DEBUG: calling get_palette with filename {}, color_count {}'.format(
         filename, color_count))
@@ -74,7 +80,8 @@ def st_presets():
             st.subheader(name)
             chart, _ = draw_palette(palette, '')
             st.altair_chart(chart, use_container_width=True)
-            st.download_button('Download', str(palette))
+            st.download_button('Download', convert_palette(
+                palette), mime='text/csv')
 
 
 def st_color_picker_app():
@@ -97,14 +104,15 @@ def st_color_picker_app():
         st.subheader('Generated palatte:')
         st.session_state['color_count'] = st.slider(
             '# colors to generate', 1, 20, 6)
-        chart, s = draw_palette(*get_palette(
-            st.session_state['image'], st.session_state['color_count']))
+        palette, s = get_palette(
+            st.session_state['image'], st.session_state['color_count'])
+        chart, s = draw_palette(palette, s)
         st.altair_chart(chart, use_container_width=True)
         if len(s):
             st.write(s)
 
-        if st.button('Download colors'):
-            pass
+        st.download_button('Download colors',
+                           convert_palette(palette), mime='text/csv')
 
 
 if __name__ == '__main__':

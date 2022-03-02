@@ -1,6 +1,7 @@
 import cv2 as cv
 import numpy as np
 import os
+import pandas as pd
 import random as rd
 import yaml
 
@@ -18,6 +19,15 @@ Indices = NewType(
     'Indices', tuple[tuple[int, int], tuple[int, int], tuple[int, int]])
 
 
+def read_palette(filename):
+    return [parse_tuple(color) for color in pd.read_csv(filename).colors]
+
+
+def parse_tuple(s, dtype=int):
+    s = s.replace('(', '').replace(')', '')
+    return tuple(dtype(num) for num in s.split(','))
+
+
 def parse_field(data, field, optional=False, default=(0, 0), dtype=int):
     ''' parse yaml field into appropriate tuple values
         :param data:        data dictionary
@@ -27,9 +37,7 @@ def parse_field(data, field, optional=False, default=(0, 0), dtype=int):
         :param dtype:       [optional] what to cast tuple vals into (default is integer) '''
     if optional and field not in data:
         return default
-    s = data[field]
-    s = s.replace('(', '').replace(')', '')
-    return tuple(dtype(num) for num in s.split(','))
+    return parse_tuple(data[field], dtype)
 
 
 def parse_sprite_yaml(data, curr_time):
@@ -308,6 +316,46 @@ class PauschBridge:
         self.set_values(slices, gen_wave(
             start_frame, end_frame, wave_width), start_time, end_time)
 
+    def color_block(self, palette: list[RGB], start_time: int, end_time: int, slices: list[Indices] = None, width: int = 4, speed: int = 30):
+        ''' effect that displays a wave of desired color & width on a base color
+            :param palette:     list of RGB values to randomly pick from
+            :param start_time:  time (sec) of effect start
+            :param end_time:    time (sec) of effect end
+            :param base_rgb:    [optional] RGB values of the desired base color. If not specified, will overlay wave on top of existing color in frames
+            :param slices:      [optional] list of the subset of the frame to display effect on, defaults to whole frame
+            :param width:       desired width of wave in relation to bridge width, i.e. 0.5 means half the bridge width
+            :param speed:       desired speed of wave in pixels / second '''
+
+        def gen_color_block(start_frame, end_frame):
+            dims = tuple([end - start for start, end in slices[0]])
+            # generate the starting frame first
+            frame = np.zeros(dims, dtype=dtype)
+            print(dims)
+            prev_color = None
+            for pos in range(0, dims[1], width):
+                # randomly choose a color and add it to the bridge, ensure it's not the previously generated color
+                if prev_color:
+                    curr_palette = [p for p in palette if p != prev_color]
+                else:
+                    curr_palette = palette
+
+                prev_color = rd.choice(curr_palette)
+                frame[:, pos:pos+width] = prev_color
+
+            for frame_index in range(end_frame - start_frame):
+                if frame_index % speed == 0:  # time to move colors down
+                    frame[:, :-width, :] = frame[:, width:, :]
+                    prev_color = tuple(frame[-1, -1, :])
+                    frame[:, -width:,
+                          :] = rd.choice([p for p in palette if p != prev_color])
+                yield frame
+
+        start_frame, end_frame, slices = self._effect_params(
+            start_time, end_time, slices)
+
+        self.set_values(slices, gen_color_block(
+            start_frame, end_frame), start_time, end_time)
+
     def save(self, basename):
         ''' save frame output to .avi file
             :param basename: base filename (without extension) '''
@@ -357,6 +405,13 @@ def simple_test():
     pbl.save('test')
 
 
+def colorblock_test():
+    pbl = PauschBridge()
+    palette = read_palette('ColorPallate_2022-03-02_09-39-54.csv')
+    pbl.color_block(palette, 0, 10)
+    pbl.save('test_colorblock')
+
+
 def sunset():
     black = (0, 0, 0)
     dark_red = (14, 1, 134)
@@ -383,4 +438,6 @@ if __name__ == '__main__':
     # sunset()
     # test_wave()
     # test_sparkle()
-    test_sprite()
+    # test_sprite()
+    #palette = read_palette('ColorPallate_2022-03-02_09-39-54.csv')
+    colorblock_test()
