@@ -83,8 +83,6 @@ class PauschFrame:
         height, width, rgb = [slice(start, stop) for start, stop in indices]
 
         mask_data = subframe != -1
-        if -1 in subframe:
-            print('subframe', sum(sum(sum(subframe != -1))))
 
         self.frame[height, width, rgb] = np.where(
             mask_data > 0, subframe, self.frame[height, width, rgb])
@@ -95,6 +93,11 @@ class PauschFrame:
 class PauschBridge:
     def __init__(self, num_frames: int = 0):
         self.frames = [PauschFrame() for _ in range(num_frames)]
+
+    def __add__(self, other):
+        pbl = PauschBridge()
+        pbl.frames = self.frames + other.frames
+        return pbl
 
     def _effect_params(self, start_time: int, end_time: int, slices: list[Indices]):
         ''' boilerplate parameters often needed for any effect methods
@@ -131,7 +134,6 @@ class PauschBridge:
 
         start_frame = start_time * frame_rate
         end_frame = end_time * frame_rate
-        print(start_frame, end_frame)
         for inds, mat, frame in zip(indices, frames, range(start_frame, end_frame)):
             self.frames[frame].set_values(inds, mat)
 
@@ -147,23 +149,24 @@ class PauschBridge:
 
         return [frame.get_top() for frame in self.frames[start_index:end_index]]
 
-    def solid_color(self, rgb: RGB, start_time: int, end_time: int, slices: list[Indices] = None):
+    def solid_color(self, rgb: RGB, end_time: int, start_time: int = 0, slices: list[Indices] = None):
         ''' effect that displays a solid color on the bridge
             :param rgb:         RGB values of the desired color
-            :param start_time:  time (sec) of effect start
             :param end_time:    time (sec) of effect end
+            :param start_time:  [optional] time (sec) of effect start, defaults to 0
             :param slices:      [optional] list of the subset of the frame to display effect on, defaults to whole frame'''
 
         _, _, slices = self._effect_params(start_time, end_time, slices)
 
         self.set_values(slices, [rgb for _ in slices], start_time, end_time)
+        return self
 
-    def hue_shift(self, start_rgb: RGB, end_rgb: RGB, start_time: int, end_time: int, slices: list[Indices] = None):
+    def hue_shift(self, start_rgb: RGB, end_rgb: RGB, end_time: int, start_time: int = 0, slices: list[Indices] = None):
         ''' effect that displays a gradual (linear) shift from one color to another
             :param start_rgb:   RGB values of the desired starting color
             :param end_rgb:     RGB values of the desired ending color
-            :param start_time:  time (sec) of effect start
             :param end_time:    time (sec) of effect end
+            :param start_time:  [optional] time (sec) of effect start
             :param slices:      [optional] list of the subset of the frame to display effect on, defaults to whole frame'''
         def rgb_ranges(start_rgb: RGB, end_rgb: RGB, num_frames: int):
             ''' generator for hue shift'''
@@ -183,11 +186,13 @@ class PauschBridge:
         self.set_values(slices, rgb_ranges(
             start_rgb, end_rgb, num_frames), start_time, end_time)
 
-    def sprite_from_file(self, filename: str, start_time: int, end_time: int):
+        return self
+
+    def sprite_from_file(self, filename: str, end_time: int, start_time: int = 0):
         ''' effect that moves a sprite based on data given from filename
             :param filename:    path to file
-            :param start_time:      time (sec) of effect start
-            :param end_time:        time (sec) of effect end'''
+            :param end_time:        time (sec) of effect end
+            :param start_time:      time (sec) of effect start'''
 
         # check that file exists
         if not os.path.exists(filename):
@@ -200,9 +205,10 @@ class PauschBridge:
         # each separate entry represents a different sprite
         for sprite_data in data:
             for params in parse_sprite_yaml(sprite_data, start_time):
-                print('PARAMS', params)
                 self.sprite(**params)
                 start_time = params['end_time']
+
+        return self
 
     def sprite(self, highlight_rgb: RGB, start_time: int, end_time: int, pos: tuple[int, int], velocity: tuple[int, int], acceleration: tuple[int, int], base_rgb: RGB, slices: list[Indices] = None):
         ''' effect that displays a small sprite moving linearly
@@ -222,6 +228,9 @@ class PauschBridge:
             max_x = x + half + 1 if x + half + 1 < limit[0] else limit[0]
             max_y = y + half + 1 if y + half + 1 < limit[1] else limit[1]
 
+            # check if any are outside the frame bounds
+            if max_x < 0 or max_y < 0:
+                return None, None
             return slice(min_x, max_x), slice(min_y, max_y)
 
         def gen_sprite_movement(num_frames):
@@ -232,7 +241,8 @@ class PauschBridge:
                                 base_rgb, dtype=dtype)
 
                 x, y = gen_slice(curr_pos)
-                frame[x, y] = highlight_rgb
+                if x is not None:
+                    frame[x, y] = highlight_rgb
 
                 curr_vel = [v + a for v, a in zip(curr_vel, acceleration)]
                 curr_pos = [p + v for p, v in zip(curr_pos, curr_vel)]
@@ -245,11 +255,13 @@ class PauschBridge:
         self.set_values(slices, gen_sprite_movement(
             end_frame - start_frame), start_time, end_time)
 
-    def sparkle(self, highlight_rgb: RGB, start_time: int, end_time: int, base_rgb: RGB = (-1, -1, -1), slices: list[Indices] = None):
+        return self
+
+    def sparkle(self, highlight_rgb: RGB, end_time: int, start_time: int = 0, base_rgb: RGB = (-1, -1, -1), slices: list[Indices] = None):
         ''' effect that displays sparkles of a desired color on a solid background color
             :param highlight_rgb:   RGB values of the desired sparkle color
-            :param start_time:      time (sec) of effect start
             :param end_time:        time (sec) of effect end
+            :param start_time:      [optional] time (sec) of effect start
             :param base_rgb:        [optional] RGB values of the desired base color. If not specified, will not overwrite base color
             :param slices:          [optional] list of the subset of the frame to display effect on, defaults to whole frame'''
 
@@ -281,11 +293,13 @@ class PauschBridge:
         self.set_values(slices, gen_sparkles(
             end_frame - start_frame), start_time, end_time)
 
-    def wave(self, highlight_rgb: RGB, start_time: int, end_time: int, base_rgb: RGB = (-1, -1, -1), slices: list[Indices] = None, width: float = 0.1, speed: int = 30) -> np.matrix:
+        return self
+
+    def wave(self, highlight_rgb: RGB, end_time: int, start_time: int = 0, base_rgb: RGB = (-1, -1, -1), slices: list[Indices] = None, width: float = 0.1, speed: int = 30) -> np.matrix:
         ''' effect that displays a wave of desired color & width on a base color
             :param highlight_rgb:   RGB values of the desired wave color
-            :param start_time:      time (sec) of effect start
             :param end_time:        time (sec) of effect end
+            :param start_time:      [optional] time (sec) of effect start
             :param base_rgb:        [optional] RGB values of the desired base color. If not specified, will overlay wave on top of existing color in frames
             :param slices:          [optional] list of the subset of the frame to display effect on, defaults to whole frame
             :param width:           desired width of wave in relation to bridge width, i.e. 0.5 means half the bridge width
@@ -301,8 +315,6 @@ class PauschBridge:
                 wave_end = wave_pos
                 frame[:, 0:wave_start, :] = base_rgb
                 frame[:, wave_start:wave_end, :] = highlight_rgb
-                print(
-                    'SHAPE', frame[:, wave_start:wave_end, :].shape, highlight_rgb)
 
                 if wave_start >= bridge_width:  # the wave has gone through the whole bridge, start over
                     wave_pos = -1
@@ -316,11 +328,13 @@ class PauschBridge:
         self.set_values(slices, gen_wave(
             start_frame, end_frame, wave_width), start_time, end_time)
 
-    def color_block(self, palette: list[RGB], start_time: int, end_time: int, slices: list[Indices] = None, width: int = 4, speed: int = 30):
+        return self
+
+    def color_block(self, palette: list[RGB], end_time: int, start_time: int = 0, slices: list[Indices] = None, width: int = 4, speed: int = 30):
         ''' effect that displays a wave of desired color & width on a base color
             :param palette:     list of RGB values to randomly pick from
-            :param start_time:  time (sec) of effect start
             :param end_time:    time (sec) of effect end
+            :param start_time:  [optional] time (sec) of effect start
             :param base_rgb:    [optional] RGB values of the desired base color. If not specified, will overlay wave on top of existing color in frames
             :param slices:      [optional] list of the subset of the frame to display effect on, defaults to whole frame
             :param width:       desired width of wave in relation to bridge width, i.e. 0.5 means half the bridge width
@@ -330,7 +344,6 @@ class PauschBridge:
             dims = tuple([end - start for start, end in slices[0]])
             # generate the starting frame first
             frame = np.zeros(dims, dtype=dtype)
-            print(dims)
             prev_color = None
             for pos in range(0, dims[1], width):
                 # randomly choose a color and add it to the bridge, ensure it's not the previously generated color
@@ -356,6 +369,8 @@ class PauschBridge:
         self.set_values(slices, gen_color_block(
             start_frame, end_frame), start_time, end_time)
 
+        return self
+
     def save(self, basename):
         ''' save frame output to .avi file
             :param basename: base filename (without extension) '''
@@ -372,43 +387,46 @@ class PauschBridge:
 
 def test_wave():
     pbl = PauschBridge()
-    pbl.solid_color((255, 0, 0), 0, 10)
-    pbl.wave((255, 255, 255), 0, 10)
+    pbl.solid_color((255, 0, 0), 10)
+    pbl.wave((255, 255, 255), 10)
     pbl.save('test_wave')
 
 
 def test_sparkle():
     pbl = PauschBridge()
-    pbl.solid_color((255, 0, 0), 0, 10)
-    pbl.wave((0, 255, 0), 0, 10)
-    pbl.sparkle((255, 255, 255), 0, 10)
+    pbl.solid_color((255, 0, 0), 10)
+    pbl.wave((0, 255, 0), 10)
+    pbl.sparkle((255, 255, 255), 10)
     pbl.save('test_sparkle')
 
 
 def test_sprite():
     pbl = PauschBridge()
-    pbl.solid_color((255, 0, 0), 0, 10)
-    pbl.wave((0, 255, 0), 0, 10)
-    pbl.sparkle((255, 255, 255), 0, 10)
-    pbl.sprite_from_file('sprite_data.yaml', 0, 5)
+    pbl.solid_color((255, 0, 0), 10)
+    pbl.wave((0, 255, 0), 10)
+    pbl.sparkle((255, 255, 255), 10)
+    pbl.sprite_from_file('sprite_data.yaml', 5)
     pbl.save('test_sprite')
 
 
 def simple_test():
-    pbl = PauschBridge()
-    pbl.solid_color((255, 0, 0), 0, 5)
-    pbl.hue_shift((255, 0, 0), (255, 255, 0), 5, 10)
-    pbl.solid_color((255, 0, 0), 10, 15)
-    pbl.wave((255, 255, 255), 10, 15)
-    pbl.sparkle((255, 0, 0), (255, 255, 255), 15, 20)
-    pbl.sprite_from_file('sprite_data.yaml', 20, 25)
+    pbl = PauschBridge().solid_color((255, 0, 0), 5)
+
+    pbl += PauschBridge().hue_shift((255, 0, 0), (255, 255, 0), 5)
+
+    pbl += PauschBridge().solid_color((255, 0, 0), 5).wave((255, 255, 255), 5)
+
+    pbl += PauschBridge().sparkle((255, 255, 255), 5, base_rgb=(0, 0, 0))
+
+    pbl += PauschBridge().sprite_from_file('sprite_data.yaml', 5)
+
     pbl.save('test')
 
 
 def colorblock_test():
     pbl = PauschBridge()
     palette = read_palette('ColorPallate_2022-03-02_09-39-54.csv')
-    pbl.color_block(palette, 0, 10)
+    pbl.color_block(palette, 10)
     pbl.save('test_colorblock')
 
 
@@ -421,23 +439,23 @@ def sunset():
     white = (255, 255, 255)
 
     pbl = PauschBridge()
-    pbl.hue_shift(black, dark_red, 0, 30)
-    pbl.hue_shift(dark_red, yellow, 30, 58)
-    pbl.hue_shift(yellow, sky_blue, 58, 60)
-    pbl.solid_color(sky_blue, 60, 120)
-    pbl.wave(sky_blue, cloud_grey, 60, 120, pbl.get_top(60, 120))
-    pbl.hue_shift(sky_blue, yellow, 120, 122)
-    pbl.hue_shift(yellow, dark_red, 122, 150)
-    pbl.hue_shift(dark_red, black, 150, 180)
-    pbl.sparkle(black, white, 180, 240)
+    pbl.hue_shift(black, dark_red, 30)
+    pbl.hue_shift(dark_red, yellow, 58, start_time=30)
+    pbl.hue_shift(yellow, sky_blue, 60, start_time=58)
+    pbl.solid_color(sky_blue, 120, start_time=60)
+    pbl.wave(sky_blue, cloud_grey, 120, pbl.get_top(60, 120), start_time=60)
+    pbl.hue_shift(sky_blue, yellow, 122, start_time=120)
+    pbl.hue_shift(yellow, dark_red, 150, start_time=122)
+    pbl.hue_shift(dark_red, black, 180, start_time=150)
+    pbl.sparkle(black, white, 240, start_time=180)
     pbl.save('sunset')
 
 
 if __name__ == '__main__':
-    # simple_test()
+    simple_test()
     # sunset()
     # test_wave()
     # test_sparkle()
     # test_sprite()
     #palette = read_palette('ColorPallate_2022-03-02_09-39-54.csv')
-    colorblock_test()
+    # colorblock_test()
