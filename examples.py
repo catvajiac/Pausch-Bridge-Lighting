@@ -54,6 +54,16 @@ def colorblock_test():
     pbl.save('test_colorblock')
 
 
+def region_select_test():
+    sky_blue = (255, 208, 65)
+    black = (0, 0, 0)
+    white = (255, 255, 255)
+    pbl = PauschBridge()
+    pbl.solid_color(sky_blue, 5).hue_shift(
+        black, white, 5, slices=pbl.get_region(5, 40, 80))
+    pbl.save('test_region')
+
+
 if __name__ == '__main__':
     test_wave()
     test_sparkle()
@@ -61,3 +71,4 @@ if __name__ == '__main__':
     test_wave_top()
     simple_test()
     colorblock_test()
+    region_select_test()

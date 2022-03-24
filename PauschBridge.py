@@ -75,10 +75,10 @@ class PauschFrame:
         (height_start, height_stop), width, color = indices
         return ((height_start - height_stop) / 2, height_stop), width, color
 
-    def get_regions(self, start, indices: Indices = None, end=None) -> Indices:
-        # TODO
-        frame = mat if mat is not None else self.frame
-        return
+    def get_region(self, start, end, indices: Indices = None) -> Indices:
+        indices = indices if indices is not None else self.get_base_indices()
+        height, _, color = indices
+        return height, (start, end), color
 
     def set_values(self, indices: Indices, subframe: np.matrix):
         height, width, rgb = [slice(start, stop) for start, stop in indices]
@@ -87,8 +87,6 @@ class PauschFrame:
 
         self.frame[height, width, rgb] = np.where(
             mask_data > 0, subframe, self.frame[height, width, rgb])
-
-        #self.frame[height, width, rgb] = subframe
 
 
 class PauschBridge:
@@ -139,7 +137,7 @@ class PauschBridge:
             self.frames[frame].set_values(inds, mat)
 
     def get_top(self, duration, start_time=0):
-        ''' gets list of indices specifying the top half of Pausch Bridge onlu
+        ''' gets list of indices specifying the top half of Pausch Bridge only
             :param duration:    time (sec) of effect end 
             :param start_time:  [optional] time (sec) of effect start'''
 
@@ -149,6 +147,30 @@ class PauschBridge:
         end_index = duration * frame_rate
 
         return [frame.get_top() for frame in self.frames[start_index:end_index]]
+
+    def get_bottom(self, duration, start_time=0):
+        ''' gets list of indices specifying the bottom half of Pausch Bridge only
+            :param duration:    time (sec) of effect end 
+            :param start_time:  [optional] time (sec) of effect start'''
+
+        self.add_missing_frames(duration - start_time)
+        # calculate frame indices
+        start_index = start_time * frame_rate
+        end_index = duration * frame_rate
+
+        return [frame.get_bottom() for frame in self.frames[start_index:end_index]]
+
+    def get_region(self, duration, region_start, region_end, start_time=0):
+        ''' gets list of indices specifying the bottom half of Pausch Bridge only
+            :param duration:    time (sec) of effect end 
+            :param start_time:  [optional] time (sec) of effect start'''
+
+        self.add_missing_frames(duration - start_time)
+        # calculate frame indices
+        start_index = start_time * frame_rate
+        end_index = duration * frame_rate
+
+        return [frame.get_region(region_start, region_end) for frame in self.frames[start_index:end_index]]
 
     def solid_color(self, rgb: RGB, end_time: int, start_time: int = 0, slices: list[Indices] = None):
         ''' effect that displays a solid color on the bridge
@@ -386,59 +408,6 @@ class PauschBridge:
         out.release()
 
 
-def test_wave():
-    pbl = PauschBridge()
-    pbl.solid_color((255, 0, 0), 10)
-    pbl.wave((255, 255, 255), 10)
-    pbl.save('test_wave')
-
-
-def test_sparkle():
-    pbl = PauschBridge()
-    pbl.solid_color((186, 102, 50), 10)
-    pbl.wave((23, 9, 16), 10)
-    pbl.sparkle((255, 255, 255), 10)
-    pbl.save('test_sparkle')
-
-
-def test_sprite():
-    pbl = PauschBridge()
-    pbl.solid_color((255, 0, 0), 10)
-    pbl.wave((0, 255, 0), 10)
-    pbl.sparkle((255, 255, 255), 10)
-    pbl.sprite_from_file('sprite_data.yaml', 5)
-    pbl.save('test_sprite')
-
-
-def test_wave_top():
-    sky_blue = (255, 208, 65)
-    cloud_grey = (237, 237, 237)
-    pbl = PauschBridge()
-    pbl.solid_color(sky_blue, 5).wave(cloud_grey, 5, slices=pbl.get_top(5))
-    pbl.save('top_wave')
-
-
-def simple_test():
-    blue = (255, 0, 0)
-    white = (255, 255, 255)
-    black = (0, 0, 0)
-    cyan = (255, 255, 0)
-    pbl = PauschBridge().solid_color(blue, 5)
-    pbl += PauschBridge().hue_shift(blue, cyan, 5)
-    pbl += PauschBridge().solid_color(blue, 5).wave(white, 5)
-    pbl += PauschBridge().sparkle(white, 5, base_rgb=black)
-    pbl = PauschBridge().sprite_from_file('sprite_data.yaml', 5)
-
-    pbl.save('test')
-
-
-def colorblock_test():
-    pbl = PauschBridge()
-    palette = read_palette('ColorPallate_2022-03-02_09-39-54.csv')
-    pbl.color_block(palette, 10)
-    pbl.save('test_colorblock')
-
-
 def full_day_simulation():
     black = (0, 0, 0)
     dark_red = (14, 1, 134)
@@ -459,5 +428,16 @@ def full_day_simulation():
     pbl.save('full_day_simulation')
 
 
+def region_select_test():
+    sky_blue = (255, 208, 65)
+    black = (0, 0, 0)
+    white = (255, 255, 255)
+    pbl = PauschBridge()
+    pbl.solid_color(sky_blue, 5).hue_shift(
+        black, white, 5, slices=pbl.get_region(5, 40, 80))
+    pbl.save('test_region')
+
+
 if __name__ == '__main__':
-    full_day_simulation()
+    spare_test()
+    # full_day_simulation()
