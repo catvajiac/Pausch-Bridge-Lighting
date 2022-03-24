@@ -1,3 +1,4 @@
+from email.mime import base
 import cv2 as cv
 import numpy as np
 import os
@@ -137,15 +138,15 @@ class PauschBridge:
         for inds, mat, frame in zip(indices, frames, range(start_frame, end_frame)):
             self.frames[frame].set_values(inds, mat)
 
-    def get_top(self, start_time, end_time):
+    def get_top(self, duration, start_time=0):
         ''' gets list of indices specifying the top half of Pausch Bridge onlu
-            :param start_time:  time (sec) of effect start
-            :param end_time:    time (sec) of effect end '''
+            :param duration:    time (sec) of effect end 
+            :param start_time:  [optional] time (sec) of effect start'''
 
-        self.add_missing_frames(end_time)
+        self.add_missing_frames(duration - start_time)
         # calculate frame indices
         start_index = start_time * frame_rate
-        end_index = end_time * frame_rate
+        end_index = duration * frame_rate
 
         return [frame.get_top() for frame in self.frames[start_index:end_index]]
 
@@ -394,8 +395,8 @@ def test_wave():
 
 def test_sparkle():
     pbl = PauschBridge()
-    pbl.solid_color((255, 0, 0), 10)
-    pbl.wave((0, 255, 0), 10)
+    pbl.solid_color((186, 102, 50), 10)
+    pbl.wave((23, 9, 16), 10)
     pbl.sparkle((255, 255, 255), 10)
     pbl.save('test_sparkle')
 
@@ -409,16 +410,24 @@ def test_sprite():
     pbl.save('test_sprite')
 
 
+def test_wave_top():
+    sky_blue = (255, 208, 65)
+    cloud_grey = (237, 237, 237)
+    pbl = PauschBridge()
+    pbl.solid_color(sky_blue, 5).wave(cloud_grey, 5, slices=pbl.get_top(5))
+    pbl.save('top_wave')
+
+
 def simple_test():
-    pbl = PauschBridge().solid_color((255, 0, 0), 5)
-
-    pbl += PauschBridge().hue_shift((255, 0, 0), (255, 255, 0), 5)
-
-    pbl += PauschBridge().solid_color((255, 0, 0), 5).wave((255, 255, 255), 5)
-
-    pbl += PauschBridge().sparkle((255, 255, 255), 5, base_rgb=(0, 0, 0))
-
-    pbl += PauschBridge().sprite_from_file('sprite_data.yaml', 5)
+    blue = (255, 0, 0)
+    white = (255, 255, 255)
+    black = (0, 0, 0)
+    cyan = (255, 255, 0)
+    pbl = PauschBridge().solid_color(blue, 5)
+    pbl += PauschBridge().hue_shift(blue, cyan, 5)
+    pbl += PauschBridge().solid_color(blue, 5).wave(white, 5)
+    pbl += PauschBridge().sparkle(white, 5, base_rgb=black)
+    pbl = PauschBridge().sprite_from_file('sprite_data.yaml', 5)
 
     pbl.save('test')
 
@@ -430,7 +439,7 @@ def colorblock_test():
     pbl.save('test_colorblock')
 
 
-def sunset():
+def full_day_simulation():
     black = (0, 0, 0)
     dark_red = (14, 1, 134)
     yellow = (0, 228, 236)
@@ -438,24 +447,17 @@ def sunset():
     cloud_grey = (237, 237, 237)
     white = (255, 255, 255)
 
-    pbl = PauschBridge()
-    pbl.hue_shift(black, dark_red, 30)
-    pbl.hue_shift(dark_red, yellow, 58, start_time=30)
-    pbl.hue_shift(yellow, sky_blue, 60, start_time=58)
-    pbl.solid_color(sky_blue, 120, start_time=60)
-    pbl.wave(sky_blue, cloud_grey, 120, pbl.get_top(60, 120), start_time=60)
-    pbl.hue_shift(sky_blue, yellow, 122, start_time=120)
-    pbl.hue_shift(yellow, dark_red, 150, start_time=122)
-    pbl.hue_shift(dark_red, black, 180, start_time=150)
-    pbl.sparkle(black, white, 240, start_time=180)
-    pbl.save('sunset')
+    pbl = PauschBridge().hue_shift(black, dark_red, 30)
+    pbl += PauschBridge().hue_shift(dark_red, yellow, 28)
+    pbl += PauschBridge().hue_shift(yellow, sky_blue, 2)
+    pbl += PauschBridge().solid_color(sky_blue, 60).wave(cloud_grey,
+                                                         60, slices=pbl.get_top(60))
+    pbl += PauschBridge().hue_shift(sky_blue, yellow, 2)
+    pbl += PauschBridge().hue_shift(yellow, dark_red, 28)
+    pbl += PauschBridge().hue_shift(dark_red, black, 30)
+    pbl += PauschBridge().sparkle(white, 60, base_rgb=black)
+    pbl.save('full_day_simulation')
 
 
 if __name__ == '__main__':
-    simple_test()
-    # sunset()
-    # test_wave()
-    # test_sparkle()
-    # test_sprite()
-    #palette = read_palette('ColorPallate_2022-03-02_09-39-54.csv')
-    # colorblock_test()
+    full_day_simulation()
