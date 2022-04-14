@@ -318,7 +318,7 @@ class PauschBridge:
 
         return self
 
-    def wave(self, highlight_rgb: RGB, end_time: int, start_time: int = 0, base_rgb: RGB = (-1, -1, -1), slices: list[Indices] = None, width: float = 0.1, speed: int = 30) -> np.matrix:
+    def wave(self, highlight_rgb: RGB, end_time: int, start_time: int = 0, base_rgb: RGB = (-1, -1, -1), slices: list[Indices] = None, width: float = 0.1, speed: int = 30, start_pos=0) -> np.matrix:
         ''' effect that displays a wave of desired color & width on a base color
             :param highlight_rgb:   RGB values of the desired wave color
             :param end_time:        time (sec) of effect end
@@ -331,10 +331,9 @@ class PauschBridge:
         def gen_wave(start_frame, end_frame, wave_width):
             dims = tuple([end - start for start, end in slices[0]])
             frame = np.full(dims, base_rgb, dtype=dtype)
-            wave_pos = 0
+            wave_pos = start_pos
             for _ in range(start_frame, end_frame):
                 wave_pos += speed / frame_rate
-                print(speed, frame_rate, wave_pos, round(wave_pos))
                 wave_index = round(wave_pos)
                 wave_start = max(wave_index - wave_width, 0)
                 wave_end = wave_index
