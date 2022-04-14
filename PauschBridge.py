@@ -331,16 +331,18 @@ class PauschBridge:
         def gen_wave(start_frame, end_frame, wave_width):
             dims = tuple([end - start for start, end in slices[0]])
             frame = np.full(dims, base_rgb, dtype=dtype)
-            wave_pos = -1
+            wave_pos = 0
             for _ in range(start_frame, end_frame):
-                wave_pos += int(speed / frame_rate)
-                wave_start = max(wave_pos - wave_width, 0)
-                wave_end = wave_pos
+                wave_pos += speed / frame_rate
+                print(speed, frame_rate, wave_pos, round(wave_pos))
+                wave_index = round(wave_pos)
+                wave_start = max(wave_index - wave_width, 0)
+                wave_end = wave_index
                 frame[:, 0:wave_start, :] = base_rgb
                 frame[:, wave_start:wave_end, :] = highlight_rgb
 
                 if wave_start >= bridge_width:  # the wave has gone through the whole bridge, start over
-                    wave_pos = -1
+                    wave_pos = 0
                 yield frame
 
         start_frame, end_frame, slices = self._effect_params(
@@ -428,16 +430,6 @@ def full_day_simulation():
     pbl.save('full_day_simulation')
 
 
-def region_select_test():
-    sky_blue = (255, 208, 65)
-    black = (0, 0, 0)
-    white = (255, 255, 255)
-    pbl = PauschBridge()
-    pbl.solid_color(sky_blue, 5).hue_shift(
-        black, white, 5, slices=pbl.get_region(5, 40, 80))
-    pbl.save('test_region')
-
-
 if __name__ == '__main__':
-    spare_test()
-    # full_day_simulation()
+    # spare_test()
+    full_day_simulation()
