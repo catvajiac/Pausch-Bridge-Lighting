@@ -4,7 +4,7 @@ from PauschBridge import PauschBridge, read_palette
 def test_wave():
     pbl = PauschBridge()
     pbl.solid_color((255, 0, 0), 10)
-    pbl.wave((255, 255, 255), 10)
+    pbl.wave((255, 255, 255), 10, speed=40, start_pos=100)
     pbl.save('test_wave')
 
 
@@ -64,11 +64,22 @@ def region_select_test():
     pbl.save('test_region')
 
 
+def test_gradient():
+    yellow = (0, 228, 236)
+    sky_blue = (255, 208, 65)
+    cloud_grey = (237, 237, 237)
+
+    pbl = PauschBridge()
+    pbl.solid_color(cloud_grey, 10)
+    pbl.gradient(sky_blue, yellow, 10, slices=pbl.get_region(10, 30, 120))
+    pbl.save('test_gradient')
+
+
 if __name__ == '__main__':
     test_wave()
-    test_sparkle()
-    test_sprite()
-    test_wave_top()
-    simple_test()
-    colorblock_test()
-    region_select_test()
+    # test_sparkle()
+    # test_sprite()
+    # test_wave_top()
+    # simple_test()
+    # colorblock_test()
+    # region_select_test()

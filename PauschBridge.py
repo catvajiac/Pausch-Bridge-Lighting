@@ -211,6 +211,40 @@ class PauschBridge:
 
         return self
 
+    def gradient(self, start_rgb: RGB, end_rgb: RGB, end_time: int, start_time: int = 0, slices: list[Indices] = None):
+        ''' effect that displays a gradient between two colors (linear) from one side of the bridge to another
+            :param start_rgb:   RGB values of the desired starting color
+            :param end_rgb:     RGB values of the desired ending color
+            :param end_time:    time (sec) of effect end
+            :param start_time:  [optional] time (sec) of effect start
+            :param slices:      [optional] list of the subset of the frame to display effect on, defaults to whole frame'''
+        def rgb_ranges(start_rgb: RGB, end_rgb: RGB, num_frames: int):
+            region_start, region_end = slices[0][1]
+            gradient_width = region_end - region_start if slices else bridge_width
+            ''' generator for hue shift'''
+            ranges = [np.linspace(start, end, gradient_width)
+                      for start, end in zip(start_rgb, end_rgb)]
+
+            frame = np.zeros([tup[1] - tup[0] for tup in slices[0]])
+
+            for i, tup in enumerate(zip(*ranges)):
+                frame[:, i] = tup
+
+            for _ in range(num_frames):
+                yield frame
+
+        start_frame, end_frame, slices = self._effect_params(
+            start_time, end_time, slices)
+
+        start_frame = start_time * frame_rate
+        end_frame = end_time * frame_rate
+        num_frames = end_frame - start_frame
+
+        self.set_values(slices, rgb_ranges(
+            start_rgb, end_rgb, num_frames), start_time, end_time)
+
+        return self
+
     def sprite_from_file(self, filename: str, end_time: int, start_time: int = 0):
         ''' effect that moves a sprite based on data given from filename
             :param filename:    path to file
@@ -430,5 +464,4 @@ def full_day_simulation():
 
 
 if __name__ == '__main__':
-    # spare_test()
     full_day_simulation()
